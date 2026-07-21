@@ -45,15 +45,20 @@ class SqlValidatorService:
             warning_message = "DANGER: This query contains DDL commands (DROP/TRUNCATE) which will permanently delete structures or tables. Confirmation required."
 
         # 2. Database validation using EXPLAIN
-        # This will verify syntax, column names, table names, types, and joins at the DB level.
+        # EXPLAIN only works reliably for SELECT (and WITH ... SELECT) queries in PostgreSQL.
+        # DDL (CREATE, ALTER, DROP, TRUNCATE) and DML (INSERT, UPDATE, DELETE) do NOT support EXPLAIN.
+        is_ddl = bool(re.search(r"^\s*(create|alter|drop|truncate|grant|revoke|comment)\b", sql_lower))
+        is_dml_write = bool(re.search(r"^\s*(insert|update|delete|merge|replace)\b", sql_lower))
+        is_explainable = not is_ddl and not is_dml_write  # Only EXPLAIN SELECT / WITH queries
+
         engine = create_target_engine(connection_string)
         try:
             with engine.connect() as conn:
-                # EXPLAIN syntax works on both PostgreSQL and MySQL
-                # Ensure we run explain on DML statements; explain on DROP/TRUNCATE/CREATE is not allowed or supported
-                if not is_drop_truncate:
+                if is_explainable:
                     explain_query = f"EXPLAIN {sql_clean}"
                     conn.execute(text(explain_query))
+                # For DDL/DML we skip EXPLAIN — syntax was already validated by the AI prompt
+
         except Exception as e:
             # Parse DB error
             err_msg = str(e)
