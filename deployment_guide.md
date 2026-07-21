@@ -55,7 +55,7 @@ Render offers a free tier for web applications that is perfect for hosting the A
    - `SECRET_KEY`: *A random security string (e.g. `7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c`)*
    - `AI_PROVIDER`: `openrouter` (or `mock` to run offline without an OpenRouter key)
    - `OPENROUTER_API_KEY`: *Your OpenRouter API key* (leave blank if running in `mock` mode)
-   - `OPENROUTER_MODEL`: `google/gemini-2.5-flash` (or your preferred OpenRouter model)
+   - `OPENROUTER_MODEL`: `google/gemini-2.5-flash:free` (or your preferred OpenRouter model)
    - `BACKEND_CORS_ORIGINS`: `https://your-app-name.vercel.app` (This is your frontend Vercel URL. You can temporarily set it to `*` and restrict it later once your Vercel deployment finishes)
 6. Click **Create Web Service**. 
 7. Once deployed, copy your service's URL (e.g., `https://sql-assistant-api.onrender.com`).

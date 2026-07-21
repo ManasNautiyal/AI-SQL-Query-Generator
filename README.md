@@ -153,7 +153,7 @@ AI-SQL-Query-Generator/
 3. **Configure the OpenRouter API Key**: Open `.env` and fill in your OpenRouter API key and desired model:
    ```env
    OPENROUTER_API_KEY=your_openrouter_api_key_here
-   OPENROUTER_MODEL=google/gemini-2.5-flash
+   OPENROUTER_MODEL=google/gemini-2.5-flash:free
    ```
    *Note: If no API key is specified, the application automatically falls back to an offline rule-based Mock Generator, allowing immediate local testing.*
 4. **Choose Execution Path**:
