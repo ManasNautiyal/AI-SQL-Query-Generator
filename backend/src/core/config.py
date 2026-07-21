@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     # AI configuration
     AI_PROVIDER: str = Field(default="openrouter", env="AI_PROVIDER")  # "openrouter" or "mock"
     OPENROUTER_API_KEY: str = Field(default="", env="OPENROUTER_API_KEY")
-    OPENROUTER_MODEL: str = Field(default="google/gemini-2.5-flash:free", env="OPENROUTER_MODEL")
+    OPENROUTER_MODEL: str = Field(default="poolside/laguna-s-2.1:free", env="OPENROUTER_MODEL")
     
     # CORS
     BACKEND_CORS_ORIGINS: Any = ["*"]
