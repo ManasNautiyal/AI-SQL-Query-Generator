@@ -19,6 +19,28 @@ class Settings(BaseSettings):
         default="sqlite:///./sql_assistant.db",
         env="DATABASE_URL"
     )
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def sanitize_database_url(cls, v: Any) -> Any:
+        if not isinstance(v, str):
+            return v
+        if "://" in v and not v.startswith("sqlite://"):
+            try:
+                from urllib.parse import quote_plus
+                scheme_split = v.split("://", 1)
+                scheme = scheme_split[0]
+                rest = scheme_split[1]
+                if "@" in rest:
+                    cred_part, host_part = rest.rsplit("@", 1)
+                    if ":" in cred_part:
+                        user, password = cred_part.split(":", 1)
+                        if "%" not in password:
+                            password = quote_plus(password)
+                        return f"{scheme}://{user}:{password}@{host_part}"
+            except Exception:
+                pass
+        return v
     
     # AI configuration
     AI_PROVIDER: str = Field(default="openrouter", env="AI_PROVIDER")  # "openrouter" or "mock"
