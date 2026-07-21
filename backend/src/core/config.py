@@ -43,7 +43,11 @@ class Settings(BaseSettings):
         return v
     
     # AI configuration
-    AI_PROVIDER: str = Field(default="openrouter", env="AI_PROVIDER")  # "openrouter" or "mock"
+    AI_PROVIDER: str = Field(default="groq", env="AI_PROVIDER")  # "groq", "openrouter", or "mock"
+    # Groq (free tier)
+    GROQ_API_KEY: str = Field(default="", env="GROQ_API_KEY")
+    GROQ_MODEL: str = Field(default="llama-3.3-70b-versatile", env="GROQ_MODEL")
+    # OpenRouter (fallback)
     OPENROUTER_API_KEY: str = Field(default="", env="OPENROUTER_API_KEY")
     OPENROUTER_MODEL: str = Field(default="poolside/laguna-s-2.1:free", env="OPENROUTER_MODEL")
     

@@ -85,6 +85,77 @@ Respond ONLY with the JSON object. Do not wrap in ```json ... ``` markdown tags.
             raise RuntimeError(f"OpenRouter API request failed: {e}")
 
 
+class GroqProvider(BaseAIProvider):
+    """Groq cloud provider — free tier, no credits required."""
+    def __init__(self, api_key: str, model: str):
+        self.api_key = api_key
+        self.model = model
+        self.url = "https://api.groq.com/openai/v1/chat/completions"
+
+    def generate_sql(self, prompt: str, schema_text: str) -> Dict[str, Any]:
+        system_instruction = f"""
+You are an expert AI SQL Generator and Database Architect.
+Your task is to take a natural language user query and a database schema description, then generate the correct SQL query.
+
+Here is the database schema description:
+{schema_text}
+
+Strict Rules:
+1. Only reference tables and columns that are defined in the schema description above. Do not hallucinate any table or column.
+2. If the user request is ambiguous, generate the most likely SQL query as the primary query and include alternatives in the "alternatives" list.
+3. For dangerous queries like UPDATE or DELETE without a WHERE clause, or DROP/TRUNCATE, raise warning messages and rate them with High/Critical risk.
+4. Your response MUST be a JSON object containing EXACTLY these keys:
+- "generated_sql": The primary generated SQL query (ensure it is clean, properly formatted, and doesn't contain markdown formatting like ```sql).
+- "alternatives": A list of alternative SQL queries if there is ambiguity (limit to 2-3 queries, otherwise empty list).
+- "confidence_score": A float between 0.0 and 1.0 indicating your confidence in the primary query.
+- "explanation": A detailed, simple English explanation of the generated query breaking down SELECT, FROM, WHERE, JOINs, GROUP BYs, etc.
+- "optimized_sql": An optimized version of the generated SQL query (e.g., using explicit column names instead of *, writing joins optimally, adding hypothetical indexes, etc.).
+- "suggestions": A list of suggestions for database improvements or optimization comments (e.g. "Add an index on column X", "Avoid SELECT *").
+- "risk_level": One of: "Low", "Medium", "High", "Critical".
+- "affected_tables": A list of table names affected or queried by this SQL statement.
+- "estimated_rows_returned": Estimated number of rows this query might return (integer, default 0).
+- "estimated_rows_modified": Estimated number of rows this query might modify/delete/insert (integer, default 0).
+- "warning_message": If the query is dangerous (e.g. missing WHERE clause in UPDATE/DELETE, or dropping tables), explain why. Otherwise, null.
+
+Respond ONLY with the JSON object. Do not wrap in ```json ... ``` markdown tags.
+"""
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_instruction.strip()},
+                {"role": "user", "content": f"User request: {prompt}\nGenerate the JSON output matching the requested schema."}
+            ],
+            "response_format": {"type": "json_object"}
+        }
+
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                response = client.post(self.url, headers=headers, json=payload)
+                response.raise_for_status()
+                result = response.json()
+
+                if "error" in result:
+                    raise RuntimeError(result["error"])
+
+                raw_text = result["choices"][0]["message"]["content"].strip()
+                if raw_text.startswith("```"):
+                    raw_text = re.sub(r"^```(?:json)?\n?", "", raw_text)
+                    raw_text = re.sub(r"\n?```$", "", raw_text)
+                    raw_text = raw_text.strip()
+
+                data = json.loads(raw_text)
+                return data
+        except Exception as e:
+            logger.error(f"Groq API execution failed: {e}")
+            raise RuntimeError(f"Groq API request failed: {e}")
+
+
 class MockAIProvider(BaseAIProvider):
     """
     A smart local rules-based fallback provider.
@@ -244,16 +315,28 @@ class AISqlService:
 
     def get_provider(self) -> BaseAIProvider:
         if self._provider is None:
-            # Check configured provider
             provider_type = settings.AI_PROVIDER.lower()
-            api_key = settings.OPENROUTER_API_KEY
-            model = settings.OPENROUTER_MODEL
-            
-            if provider_type == "openrouter" and api_key:
-                logger.info(f"Initializing OpenRouter AI Provider with model: {model}.")
-                self._provider = OpenRouterProvider(api_key, model)
+
+            if provider_type == "groq":
+                api_key = settings.GROQ_API_KEY
+                model = settings.GROQ_MODEL
+                if api_key:
+                    logger.info(f"Initializing Groq AI Provider with model: {model}.")
+                    self._provider = GroqProvider(api_key, model)
+                else:
+                    logger.warning("Groq API key missing. Falling back to Mock Provider.")
+                    self._provider = MockAIProvider()
+            elif provider_type == "openrouter":
+                api_key = settings.OPENROUTER_API_KEY
+                model = settings.OPENROUTER_MODEL
+                if api_key:
+                    logger.info(f"Initializing OpenRouter AI Provider with model: {model}.")
+                    self._provider = OpenRouterProvider(api_key, model)
+                else:
+                    logger.warning("OpenRouter API key missing. Falling back to Mock Provider.")
+                    self._provider = MockAIProvider()
             else:
-                logger.warning("OpenRouter API key is missing or provider is configured to 'mock'. Falling back to local Mock Provider.")
+                logger.warning("AI_PROVIDER is 'mock' or unrecognized. Using local Mock Provider.")
                 self._provider = MockAIProvider()
         return self._provider
 
